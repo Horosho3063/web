@@ -1,1 +1,51 @@
+name: Deploy to GitHub Pages after success test # - название. Может быть любым.
 
+on:                                             # реагирует на действие push 
+  push:                                         # в ветку main
+    branches:
+      - main
+
+permissions: # Определяет, какие права имеет workflow
+  contents: read  # читать содержимое репозитория (нужно для checkout).
+  pages: write    # разрешение на запись в GitHub Pages (необходимо для деплоя).
+  id-token: write # нужно для аутентификации и безопасности, например, при деплое.
+
+jobs:
+  check-index:             # Первая задача — проверка наличия index.html
+    runs-on: ubuntu-latest
+    outputs:
+      found: ${{ steps.check_file.outputs.found }}
+    steps:
+      - name: Checkout repository                 # клонирует содержимое репозитория
+        uses: actions/checkout@v4
+
+      - name: Check for index.html                # проверка наличия файла
+        id: check_file
+        run: |
+          if [ -f "index.html" ]; then
+            echo "found=true" >> $GITHUB_OUTPUT
+          else
+            echo "found=false" >> $GITHUB_OUTPUT
+          fi
+
+  deploy:             # Определяется задача (job) под названием deploy.
+    needs: check-index
+    if: needs.check-index.outputs.found == 'true'
+    runs-on: ubuntu-latest
+    environment:  # работает в окружении с именем github-pages
+      name: github-pages 
+
+    steps: # клонирует содержимое репозитория в среду выполнения
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Pages                        # подготавливает GitHub Pages для деплоя
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact                    # загружает содержимое как артефакт
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - name: Deploy to GitHub Pages             # деплой на GitHub Pages
+        uses: actions/deploy-pages@v4
